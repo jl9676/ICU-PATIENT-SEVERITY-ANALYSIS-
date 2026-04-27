@@ -3,7 +3,6 @@
 # Course: 21CSS303T - Data Science
 # Author: [Your Name]
 # ============================================================
-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -17,23 +16,18 @@ from sklearn.metrics import (accuracy_score, classification_report,
 from sklearn.ensemble import RandomForestClassifier
 import warnings
 import os
-
 warnings.filterwarnings('ignore')
 os.makedirs('outputs', exist_ok=True)
-
 # ─────────────────────────────────────────────
 # SECTION 1: DATASET GENERATION (Synthetic ICU)
 # ─────────────────────────────────────────────
 np.random.seed(42)
 N = 300
-
 age = np.random.randint(18, 90, N)
-
 # Severity score (0-100): older patients tend to be more severe
 severity_score = np.clip(
     age * 0.6 + np.random.normal(0, 12, N), 10, 100
 ).astype(int)
-
 gender = np.random.choice(['Male', 'Female'], N)
 diagnosis = np.random.choice(
     ['Sepsis', 'Cardiac Arrest', 'Respiratory Failure',
@@ -41,14 +35,12 @@ diagnosis = np.random.choice(
     p=[0.25, 0.20, 0.25, 0.15, 0.15]
 )
 los_days = np.random.randint(1, 30, N)  # Length of Stay
-
 # Outcome: higher severity → higher mortality probability
 outcome_prob = severity_score / 120
 outcome = np.array(
     ['Deceased' if np.random.rand() < p else 'Survived'
      for p in outcome_prob]
 )
-
 df = pd.DataFrame({
     'age': age,
     'gender': gender,
@@ -57,7 +49,6 @@ df = pd.DataFrame({
     'los_days': los_days,
     'outcome': outcome
 })
-
 # Inject some missing values for realism
 df.loc[np.random.choice(df.index, 15, replace=False), 'severity_score'] = np.nan
 df.loc[np.random.choice(df.index, 10, replace=False), 'los_days'] = np.nan
@@ -65,28 +56,23 @@ df.loc[np.random.choice(df.index, 10, replace=False), 'los_days'] = np.nan
 df.to_csv('dataset/icu_dataset.csv', index=False)
 print(f"Dataset: ({df.shape[0]}, {df.shape[1]}) | Missing values before imputation: {df.isnull().sum().sum()}")
 print(df.describe().round(2))
-
 # ─────────────────────────────────────────────
 # SECTION 2: DATA PREPROCESSING
 # ─────────────────────────────────────────────
-
 # 2a. Missing value imputation using median
 df['severity_score'].fillna(df['severity_score'].median(), inplace=True)
 df['los_days'].fillna(df['los_days'].median(), inplace=True)
 print(f"\nMissing after imputation: {df.isnull().sum().sum()}")
-
 # 2b. Age grouping (clinical bands)
 bins = [17, 35, 50, 65, 90]
 labels = ['Young (18-35)', 'Middle-aged (36-50)', 'Senior (51-65)', 'Elderly (66+)']
 df['age_group'] = pd.cut(df['age'], bins=bins, labels=labels)
-
 # 2c. Severity category
 df['severity_cat'] = pd.cut(
     df['severity_score'],
     bins=[0, 33, 66, 100],
     labels=['Low', 'Moderate', 'High']
 )
-
 # 2d. Encode categorical variables for modelling
 le_gender = LabelEncoder()
 le_diag   = LabelEncoder()
@@ -95,10 +81,8 @@ le_out    = LabelEncoder()
 df['gender_enc']    = le_gender.fit_transform(df['gender'])
 df['diagnosis_enc'] = le_diag.fit_transform(df['diagnosis'])
 df['outcome_enc']   = le_out.fit_transform(df['outcome'])   # Deceased=0, Survived=1
-
 print("\nAge group distribution:")
 print(df['age_group'].value_counts())
-
 # ─────────────────────────────────────────────
 # SECTION 3: FEATURE SELECTION (Pearson)
 # ─────────────────────────────────────────────
@@ -108,12 +92,10 @@ print("\nPearson r with outcome:")
 print(corr.round(3))
 selected_features = corr[abs(corr) > 0.1].index.tolist()
 print(f"Selected features (|r|>0.1): {selected_features}")
-
 # ─────────────────────────────────────────────
 # SECTION 4: VISUALISATIONS
 # ─────────────────────────────────────────────
 PALETTE = ['#2E75B6', '#ED7D31', '#A9D18E', '#FF6B6B', '#9B59B6']
-
 # --- Plot 1: Average Severity Score by Age Group (Bar Chart) ---
 fig, ax = plt.subplots(figsize=(9, 5))
 avg_sev = df.groupby('age_group', observed=True)['severity_score'].mean()
@@ -152,7 +134,6 @@ plt.tight_layout()
 plt.savefig('outputs/plot2_age_vs_severity_scatter.png', dpi=150)
 plt.close()
 print("Saved: plot2_age_vs_severity_scatter.png")
-
 # --- Plot 3: Heatmap – Correlation Matrix ---
 fig, ax = plt.subplots(figsize=(8, 6))
 corr_matrix = df[num_features + ['outcome_enc']].corr()
@@ -166,7 +147,6 @@ plt.tight_layout()
 plt.savefig('outputs/plot3_correlation_heatmap.png', dpi=150)
 plt.close()
 print("Saved: plot3_correlation_heatmap.png")
-
 # --- Plot 4: Stacked Bar – Outcome Distribution across Severity Categories ---
 fig, ax = plt.subplots(figsize=(8, 5))
 ct = pd.crosstab(df['severity_cat'], df['outcome'])
@@ -197,7 +177,6 @@ plt.tight_layout()
 plt.savefig('outputs/plot5_severity_by_diagnosis.png', dpi=150)
 plt.close()
 print("Saved: plot5_severity_by_diagnosis.png")
-
 # ─────────────────────────────────────────────
 # SECTION 5: MODEL BUILDING – CLASSIFICATION
 # ─────────────────────────────────────────────
@@ -211,24 +190,20 @@ X_scaled = scaler.fit_transform(X)
 X_train, X_test, y_train, y_test = train_test_split(
     X_scaled, y, test_size=0.2, random_state=42, stratify=y
 )
-
 # Logistic Regression
 lr = LogisticRegression(max_iter=500, random_state=42)
 lr.fit(X_train, y_train)
 y_pred_lr = lr.predict(X_test)
 acc_lr = accuracy_score(y_test, y_pred_lr)
-
 # Random Forest
 rf = RandomForestClassifier(n_estimators=100, random_state=42)
 rf.fit(X_train, y_train)
 y_pred_rf = rf.predict(X_test)
 acc_rf = accuracy_score(y_test, y_pred_rf)
-
 print(f"\nLogistic Regression Accuracy : {acc_lr:.4f}")
 print(f"Random Forest Accuracy       : {acc_rf:.4f}")
 print("\nClassification Report (Random Forest):")
 print(classification_report(y_test, y_pred_rf, target_names=le_out.classes_))
-
 # --- Confusion Matrix ---
 fig, ax = plt.subplots(figsize=(6, 5))
 cm = confusion_matrix(y_test, y_pred_rf)
@@ -239,14 +214,12 @@ plt.tight_layout()
 plt.savefig('outputs/plot6_confusion_matrix.png', dpi=150)
 plt.close()
 print("Saved: plot6_confusion_matrix.png")
-
 # ─────────────────────────────────────────────
 # SECTION 6: KEY INSIGHTS
 # ─────────────────────────────────────────────
 print("\n" + "="*55)
 print("KEY INSIGHTS")
 print("="*55)
-
 elderly_sev = df[df['age_group'] == 'Elderly (66+)']['severity_score'].mean()
 young_sev   = df[df['age_group'] == 'Young (18-35)']['severity_score'].mean()
 print(f"1. Elderly patients average severity: {elderly_sev:.1f} vs Young: {young_sev:.1f}")
